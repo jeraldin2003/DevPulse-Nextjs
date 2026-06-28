@@ -6,7 +6,9 @@ import { ACCESS_COOKIE, REFRESH_COOKIE } from "./auth-cookies.js";
 import { setAuthCookies } from "./session.js";
 
 export function getBackendBaseUrl() {
-  return (process.env.BACKEND_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+  const configured = process.env.BACKEND_API_URL || "http://localhost:3001/api";
+  const trimmed = configured.replace(/\/$/, "");
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 
 export function backendUrl(path) {
@@ -21,11 +23,25 @@ export async function backendFetch(path, options = {}) {
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(url, {
-    ...options,
-    headers,
-    cache: "no-store",
-  });
+  try {
+    return await fetch(url, {
+      ...options,
+      headers,
+      cache: "no-store",
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: `Unable to reach backend at ${getBackendBaseUrl()}`,
+        detail: error?.message,
+      }),
+      {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
 }
 
 export async function backendJson(path, options = {}) {
